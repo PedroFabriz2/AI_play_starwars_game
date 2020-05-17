@@ -2,6 +2,7 @@ from pygame.locals import *
 import pygame
 import random
 import os
+import neat
 
 #pre-sets
 pygame.font.init()
@@ -9,9 +10,10 @@ WIN_WIDTH = 800
 WIN_HEIGHT = 490
 STAT_FONT = pygame.font.SysFont("comicsans", 50)
 #ROCKET = rocket_pos_x, rocket_pos_y, rocket_width, rocket_height = 50, 50, 50, 20
-screen = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
+WIN = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
+gen = 0
 bb8_img = pygame.image.load(os.path.join("imgs","bb8.png")).convert_alpha()
-bb8_evil_img = pygame.image.load(os.path.join("imgs","bb8_evil.png")).convert_alpha()
+#bb8_evil_img = pygame.image.load(os.path.join("imgs","bb8_evil.png")).convert_alpha()
 falcon_img = pygame.image.load(os.path.join("imgs","falcon_maior.png")).convert_alpha()
 
 pygame.display.set_caption("Save bb8!")
@@ -24,18 +26,20 @@ class Falcon:
 		self.velocity = 5
 		self.img = self.IMG
 
-	def move(self, keys):
-		if keys[pygame.K_UP]:
+	def move(self, move_to):
+		if move_to == 1:
 			if self.y_pos <= -35:
 				self.y_pos = self.y_pos
 			else:
 				self.y_pos -= self.velocity
-
-		if keys[pygame.K_DOWN]:
+		elif move_to == 0:
 			if self.y_pos >= 465:
 				self.y_pos = self.y_pos
 			else:
 				self.y_pos += self.velocity
+		else:
+			self.y_pos = self.y_pos
+
 		   		
 	def draw(self, screen):
 		screen.blit(self.IMG, (self.x_pos, self.y_pos))
@@ -48,7 +52,7 @@ class BB8:
 	def __init__(self, x_pos):
 		self.x_pos = x_pos
 		self.height = 0
-		self.velocityX = 3
+		self.velocityX = 2
 		self.img = self.IMG
 
 		self.update_height()
@@ -75,102 +79,192 @@ class BB8:
 
 		return False
 
-class evil_BB8:
-	IMG = bb8_evil_img
-	def __init__(self, x_pos):
-		self.x_pos = x_pos
-		self.height = 0
-		self.velocityX = 5
-		self.img = self.IMG
+# class evil_BB8:
+# 	IMG = bb8_evil_img
+# 	def __init__(self, x_pos):
+# 		self.x_pos = x_pos
+# 		self.height = 0
+# 		self.velocityX = 2
+# 		self.img = self.IMG
 
-		self.update_height()
+# 		self.update_height()
 
-	def update_height(self):
-		self.height = random.randrange(20, 450)
+# 	def update_height(self):
+# 		self.height = random.randrange(20, 450)
 
-	def draw(self, screen):
-		screen.blit(self.IMG, (self.x_pos, self.height))
+# 	def draw(self, screen):
+# 		screen.blit(self.IMG, (self.x_pos, self.height))
 		
-	def move(self):
-		self.x_pos -= self.velocityX
+# 	def move(self):
+# 		self.x_pos -= self.velocityX
 
-	def collide(self, falcon):
-		falcon_mask = falcon.get_mask()
-		bb8_evil_mask = pygame.mask.from_surface(self.img)
+# 	def collide(self, falcon):
+# 		falcon_mask = falcon.get_mask()
+# 		bb8_evil_mask = pygame.mask.from_surface(self.img)
 
-		bad_offset = (self.x_pos - falcon.x_pos, self.height - round(falcon.y_pos))
+# 		bad_offset = (self.x_pos - falcon.x_pos, self.height - round(falcon.y_pos))
 
-		f_point = falcon_mask.overlap(bb8_evil_mask, bad_offset)
+# 		f_point = falcon_mask.overlap(bb8_evil_mask, bad_offset)
 
-		if f_point:
-			return True
+# 		if f_point:
+# 			return True
 
-		return False
+# 		return False
 
-def Screen(screen, falcon, bb8, evil_bb8, score, die):
+def Screen(screen, falcons, bb8, gen, score):
 	screen.fill((0,0,0))
 	keys = pygame.key.get_pressed()
-	score_label = STAT_FONT.render("Score: " + str(score),1,(255,255,255))
-	die_label = STAT_FONT.render("Die: " + str(die),1,(255,255,255))
+	score_label = STAT_FONT.render("Generation: " + str(gen),1,(255,255,255))
+	hm_label = STAT_FONT.render("Alive: " + str(len(falcons)),1,(255,255,255))
 	
 	screen.blit(score_label, (WIN_WIDTH - score_label.get_width() - 10, 10))
-	screen.blit(die_label, (10, 10))
+	screen.blit(hm_label, (10, 10))
+	
+	
+	win_label = STAT_FONT.render("Score: " + str(score),1,(255,255,255))
+	screen.blit(win_label, (10, 50))
 
-	for bb8 in bb8:
-		bb8.draw(screen)
+	
+	for bb8s in bb8:
+		bb8s.draw(screen)
 
-	for evil in evil_bb8:
-			evil.draw(screen)	
-		
-	falcon.draw(screen)
-	falcon.move(keys)
+	# for evil in evil_bb8:
+	# 	evil.draw(screen)	
+
+	for falcon in falcons:
+		falcon.draw(screen)
+		#falcon.move(keys)
 	pygame.display.update()
 
-def main(screen):
-	falcon = Falcon(70, 50)
 
-	evil_bb8 = []
+def main(genomes, config):
+	nets = []
+	ge = []
+	falcons = [] #Falcon(70, 50)
+	score = 0
+
+	global WIN, gen
+	screen = WIN
+	gen += 1
+
+	for _, g in genomes:
+		net = neat.nn.FeedForwardNetwork.create(g, config)
+		nets.append(net)
+		falcons.append(Falcon(70, 50))
+		g.fitness = 0
+		ge.append(g)
+
+
+	#evil_bb8 = []
 	bb8 = []
 
 	bb8.append(BB8(WIN_WIDTH))
-	evil_bb8.append(evil_BB8(WIN_WIDTH))
+	#evil_bb8.append(evil_BB8(WIN_WIDTH))
 
-	die = 0
-	score = 0
+	
 	run = True
 	while(run):
 
 		for event in pygame.event.get():
 		    if event.type==QUIT:
 		        run = False
+		        pygame.quit()
+		        quit()
+
+		bb8_ind = 0
+		# bb8_evil_ind = 0
+		if len(falcons) > 0:
+			if len(bb8) > 1 and bb8[0].x_pos > falcons[0].x_pos:
+				bb8_ind = 1
+			# if len(evil_bb8) > 1 and evil_bb8[0].collide(falcons[0]):
+			# 	bb8_evil_ind = 1
+		else:
+			run = False
+			break
+
+		for x, falcon in enumerate(falcons):
+			falcon.move(-1)
+			ge[x].fitness += 0.1
+
+			output = nets[x].activate((abs(falcon.x_pos - bb8[bb8_ind].x_pos), abs(falcon.y_pos - bb8[bb8_ind].height)))
+			if output[0] >= 0:
+				falcon.move(1)
+			else:
+				falcon.move(0)
+
 
 		if bb8[-1].x_pos <= WIN_WIDTH/2:
 			bb8.append(BB8(WIN_WIDTH))
 
-		if evil_bb8[-1].x_pos <= WIN_WIDTH/3:
-			evil_bb8.append(evil_BB8(WIN_WIDTH))
+		# if bb8[-1].x_pos <= WIN_WIDTH/3:
+		# 	evil_bb8.append(evil_BB8(WIN_WIDTH))
 
+		# if evil_bb8[-1].x_pos <= WIN_WIDTH/2:
+		# 	evil_bb8.append(evil_BB8(WIN_WIDTH))
+
+		rem = []
 		for bb8s in bb8:
-			if bb8s.collide(falcon):
-				bb8.remove(bb8s)
-				score += 1
-			if bb8s.x_pos <= 0:
-				bb8.remove(bb8s)
 
 			bb8s.move()
+			for x, falcon in enumerate(falcons):
+				if bb8s.collide(falcon):
+					ge[x].fitness += 2
+					score += 1
+					break
 
-		for evil in evil_bb8:
-			if evil.collide(falcon):
-				evil_bb8.remove(evil)
-				die += 1
-			if evil.x_pos <= 0:
-				evil_bb8.remove(evil)
 
-			evil.move()
+			if bb8s.x_pos < falcon.x_pos:
+				rem.append(bb8s)
+			
+			for x, falcon in enumerate(falcons):
+				if falcon.y_pos <= -35 or falcon.y_pos >= 465:
+					falcons.pop(x)
+					nets.pop(x)
+					ge[x].fitness -= 1
+					ge.pop(x)
 
-		print(len(bb8), len(evil_bb8))
-		Screen(screen, falcon, bb8, evil_bb8, score, die) 	
-	pygame.quit()
+			for r in rem:
+				bb8.remove(r)
 
-main(screen)
+			# for evil in evil_bb8:
+			# 	if evil.collide(falcon):
+			# 		falcons.pop(x)
+			# 		nets.pop(x)
+			# 		ge[x].fitness -= 2
+			# 		ge.pop(x)
+			# 		evil_bb8.remove(evil)
+					
+			# 	if evil.x_pos <= 0:
+			# 		evil_bb8.remove(evil)
+
+			# 	# if falcon.x_pos >= evil.x_pos:
+			# 	# 	ge[x].fitness += 1
+
+			# 	evil.move()
+
+		# if len(scores) > 0:
+		# 	print(max(scores))
+		Screen(WIN, falcons, bb8, gen, score) 	
+	
+
+def run(config):
+	config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                         neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                         config)
+	#this sets our population as our config file tells to
+	p = neat.Population(config)
+
+	#add some reporters to report data
+	p.add_reporter(neat.StdOutReporter(True))
+	stats = neat.StatisticsReporter()
+	p.add_reporter(stats)
+
+	winner = p.run(main, 50)#total of 50 generations of species
+	print('\nBest genome:\n{!s}'.format(winner))
+
+if __name__ == '__main__':
+
+    local_dir = os.path.dirname(__file__)
+    config_path = os.path.join(local_dir, 'config_file.txt')
+    run(config_path)
 
