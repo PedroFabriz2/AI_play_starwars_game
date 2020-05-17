@@ -9,11 +9,9 @@ pygame.font.init()
 WIN_WIDTH = 800
 WIN_HEIGHT = 490
 STAT_FONT = pygame.font.SysFont("comicsans", 50)
-#ROCKET = rocket_pos_x, rocket_pos_y, rocket_width, rocket_height = 50, 50, 50, 20
 WIN = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
 gen = 0
 bb8_img = pygame.image.load(os.path.join("imgs","bb8.png")).convert_alpha()
-#bb8_evil_img = pygame.image.load(os.path.join("imgs","bb8_evil.png")).convert_alpha()
 falcon_img = pygame.image.load(os.path.join("imgs","falcon_maior.png")).convert_alpha()
 
 pygame.display.set_caption("Save bb8!")
@@ -52,7 +50,7 @@ class BB8:
 	def __init__(self, x_pos):
 		self.x_pos = x_pos
 		self.height = 0
-		self.velocityX = 2
+		self.velocityX = 4
 		self.img = self.IMG
 
 		self.update_height()
@@ -79,38 +77,6 @@ class BB8:
 
 		return False
 
-# class evil_BB8:
-# 	IMG = bb8_evil_img
-# 	def __init__(self, x_pos):
-# 		self.x_pos = x_pos
-# 		self.height = 0
-# 		self.velocityX = 2
-# 		self.img = self.IMG
-
-# 		self.update_height()
-
-# 	def update_height(self):
-# 		self.height = random.randrange(20, 450)
-
-# 	def draw(self, screen):
-# 		screen.blit(self.IMG, (self.x_pos, self.height))
-		
-# 	def move(self):
-# 		self.x_pos -= self.velocityX
-
-# 	def collide(self, falcon):
-# 		falcon_mask = falcon.get_mask()
-# 		bb8_evil_mask = pygame.mask.from_surface(self.img)
-
-# 		bad_offset = (self.x_pos - falcon.x_pos, self.height - round(falcon.y_pos))
-
-# 		f_point = falcon_mask.overlap(bb8_evil_mask, bad_offset)
-
-# 		if f_point:
-# 			return True
-
-# 		return False
-
 def Screen(screen, falcons, bb8, gen, score):
 	screen.fill((0,0,0))
 	keys = pygame.key.get_pressed()
@@ -126,10 +92,7 @@ def Screen(screen, falcons, bb8, gen, score):
 
 	
 	for bb8s in bb8:
-		bb8s.draw(screen)
-
-	# for evil in evil_bb8:
-	# 	evil.draw(screen)	
+		bb8s.draw(screen)	
 
 	for falcon in falcons:
 		falcon.draw(screen)
@@ -154,14 +117,10 @@ def main(genomes, config):
 		g.fitness = 0
 		ge.append(g)
 
-
-	#evil_bb8 = []
 	bb8 = []
 
 	bb8.append(BB8(WIN_WIDTH))
-	#evil_bb8.append(evil_BB8(WIN_WIDTH))
 
-	
 	run = True
 	while(run):
 
@@ -172,20 +131,16 @@ def main(genomes, config):
 		        quit()
 
 		bb8_ind = 0
-		# bb8_evil_ind = 0
 		if len(falcons) > 0:
-			if len(bb8) > 1 and bb8[0].x_pos > falcons[0].x_pos:
+			if len(bb8) > 1 and bb8[0].x_pos < falcons[0].x_pos:
 				bb8_ind = 1
-			# if len(evil_bb8) > 1 and evil_bb8[0].collide(falcons[0]):
-			# 	bb8_evil_ind = 1
 		else:
 			run = False
 			break
 
 		for x, falcon in enumerate(falcons):
 			falcon.move(-1)
-			ge[x].fitness += 0.1
-
+			
 			output = nets[x].activate((abs(falcon.x_pos - bb8[bb8_ind].x_pos), abs(falcon.y_pos - bb8[bb8_ind].height)))
 			if output[0] >= 0:
 				falcon.move(1)
@@ -196,12 +151,7 @@ def main(genomes, config):
 		if bb8[-1].x_pos <= WIN_WIDTH/2:
 			bb8.append(BB8(WIN_WIDTH))
 
-		# if bb8[-1].x_pos <= WIN_WIDTH/3:
-		# 	evil_bb8.append(evil_BB8(WIN_WIDTH))
-
-		# if evil_bb8[-1].x_pos <= WIN_WIDTH/2:
-		# 	evil_bb8.append(evil_BB8(WIN_WIDTH))
-
+		add_score = False
 		rem = []
 		for bb8s in bb8:
 
@@ -209,11 +159,12 @@ def main(genomes, config):
 			for x, falcon in enumerate(falcons):
 				if bb8s.collide(falcon):
 					ge[x].fitness += 2
-					score += 1
+					bb8.remove(bb8s)
+					add_score = True
 					break
-
-
+					
 			if bb8s.x_pos < falcon.x_pos:
+				add_score = False
 				rem.append(bb8s)
 			
 			for x, falcon in enumerate(falcons):
@@ -226,24 +177,9 @@ def main(genomes, config):
 			for r in rem:
 				bb8.remove(r)
 
-			# for evil in evil_bb8:
-			# 	if evil.collide(falcon):
-			# 		falcons.pop(x)
-			# 		nets.pop(x)
-			# 		ge[x].fitness -= 2
-			# 		ge.pop(x)
-			# 		evil_bb8.remove(evil)
-					
-			# 	if evil.x_pos <= 0:
-			# 		evil_bb8.remove(evil)
+			if add_score:
+				score += 1
 
-			# 	# if falcon.x_pos >= evil.x_pos:
-			# 	# 	ge[x].fitness += 1
-
-			# 	evil.move()
-
-		# if len(scores) > 0:
-		# 	print(max(scores))
 		Screen(WIN, falcons, bb8, gen, score) 	
 	
 
